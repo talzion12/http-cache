@@ -6,22 +6,25 @@ use std::{
 use futures::{channel::mpsc::channel, future::BoxFuture, FutureExt, SinkExt, StreamExt};
 use http::{Request, Response, StatusCode};
 use hyper::{body::Bytes, Body};
+use phf::phf_set;
 
-use super::storage::Cache;
+use crate::cache::metadata::CacheMetadata;
 
-pub struct CachingLayer<C> {
+use super::{storage::Cache, GetBody};
+
+pub struct CachingLayer<C: ?Sized> {
     cache: Arc<C>,
 }
 
-impl<C> CachingLayer<C> {
-    pub fn new(cache: C) -> Self {
+impl<C: ?Sized> CachingLayer<C> {
+    pub fn new(cache: impl Into<Arc<C>>) -> Self {
         Self {
-            cache: Arc::from(cache),
+            cache: cache.into(),
         }
     }
 }
 
-impl<S: Clone, C: Cache> tower::Layer<S> for CachingLayer<C> {
+impl<S: Clone, C: Cache + ?Sized> tower::Layer<S> for CachingLayer<C> {
     type Service = CachingService<S, C>;
 
     fn layer(&self, inner: S) -> Self::Service {
@@ -32,12 +35,107 @@ impl<S: Clone, C: Cache> tower::Layer<S> for CachingLayer<C> {
     }
 }
 
-pub struct CachingService<S, C> {
+pub struct CachingService<S, C: ?Sized> {
     inner: S,
     cache: Arc<C>,
 }
 
-impl<S: Clone, C> Clone for CachingService<S, C> {
+impl<S, C> CachingService<S, C>
+where
+    S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
+    C: Cache + 'static + ?Sized,
+{
+    async fn on_request(&mut self, request: Request<Body>) -> Result<Response<Body>, hyper::Error>
+    where
+        S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error>,
+        C: Cache + 'static,
+    {
+        let uri = request.uri();
+        tracing::debug!("Received request for {uri}");
+        let cache_result = self.cache.get(uri).await;
+
+        match cache_result {
+            Ok(Some((metadata, body))) => self.on_cache_hit(metadata, body).await,
+            Ok(None) => self.on_cache_miss(request).await,
+            Err(error) => {
+                tracing::error!(%error, "Failed to read from cache");
+                Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::empty())
+                    .unwrap())
+            }
+        }
+    }
+
+    async fn on_cache_hit(
+        &self,
+        metadata: CacheMetadata,
+        body: GetBody,
+    ) -> Result<Response<Body>, hyper::Error> {
+        tracing::debug!("Found in cache");
+
+        let mut builder = Response::builder().status(metadata.status);
+
+        for (key, value) in metadata.headers {
+            tracing::debug!("Setting key {key}");
+            builder = builder.header(key, value);
+        }
+
+        let body = builder
+            .body(Body::wrap_stream(body))
+            .unwrap_or_else(|error| {
+                tracing::error!(%error, "Failed to build a proxy request");
+                Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(Body::empty())
+                    .unwrap()
+            });
+
+        Ok(body)
+    }
+
+    async fn on_cache_miss(
+        &mut self,
+        request: Request<Body>,
+    ) -> Result<Response<Body>, hyper::Error> {
+        tracing::debug!("Not found in cache");
+        let uri = request.uri().clone();
+        let response = self.inner.call(request).await?;
+
+        if response.status().is_success() {
+            let (parts, body) = response.into_parts();
+
+            let metadata = CacheMetadata {
+                status: parts.status.as_u16(),
+                headers: parts
+                    .headers
+                    .iter()
+                    .filter(|(key, _)| HEADERS_TO_KEEP.contains(key.as_str()))
+                    .map(|(key, value)| (key.to_string(), value.as_bytes().to_vec()))
+                    .collect(),
+            };
+
+            let (sender, receiver) = channel::<Bytes>(10);
+            let cache_cloned = self.cache.clone();
+
+            tokio::spawn(async move {
+                match cache_cloned.set(&uri, receiver, metadata).await {
+                    Ok(()) => tracing::debug!("Wrote to cache"),
+                    Err(err) => tracing::error!("Failed to write to cache {err:?}"),
+                }
+            });
+
+            let res_body =
+                Body::wrap_stream(body.then(move |part| send_part(part, sender.clone())));
+
+            Ok(Response::from_parts(parts, res_body))
+        } else {
+            Ok(response)
+        }
+    }
+}
+
+impl<S: Clone, C: ?Sized> Clone for CachingService<S, C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -51,7 +149,7 @@ where
     S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
     S: Clone + 'static,
     S::Future: Send,
-    C: Cache + Send + Sync + 'static,
+    C: Cache + Send + Sync + 'static + ?Sized,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -63,69 +161,8 @@ where
 
     #[tracing::instrument(skip(self))]
     fn call(&mut self, request: Request<Body>) -> Self::Future {
-        call_impl(self.cache.clone(), self.inner.clone(), request).boxed()
-    }
-}
-
-async fn call_impl<S, C>(
-    cache: Arc<C>,
-    mut inner: S,
-    request: Request<Body>,
-) -> Result<Response<Body>, hyper::Error>
-where
-    S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error>,
-    C: Cache + 'static,
-{
-    let key = request.uri().clone();
-    tracing::debug!("Received request for {key}");
-    let cache_result = cache.get(&key).await;
-
-    match cache_result {
-        Ok(Some(cached)) => {
-            tracing::debug!("Found in cache");
-            Ok(Response::builder()
-                .status(StatusCode::OK)
-                .body(Body::wrap_stream(cached))
-                .unwrap_or_else(|error| {
-                    tracing::error!(%error, "Failed to build a proxy request");
-                    Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(Body::empty())
-                        .unwrap()
-                }))
-        }
-        Ok(None) => {
-            tracing::debug!("Not found in cache");
-            let response = inner.call(request).await?;
-
-            if response.status().is_success() {
-                let (parts, body) = response.into_parts();
-
-                let (sender, receiver) = channel::<Bytes>(10);
-                let cache_cloned = cache.clone();
-
-                tokio::spawn(async move {
-                    match cache_cloned.set(&key, receiver).await {
-                        Ok(()) => tracing::debug!("Wrote to cache"),
-                        Err(err) => tracing::error!("Failed to write to cache {err:?}"),
-                    }
-                });
-
-                let res_body =
-                    Body::wrap_stream(body.then(move |part| send_part(part, sender.clone())));
-
-                Ok(Response::from_parts(parts, res_body))
-            } else {
-                Ok(response)
-            }
-        }
-        Err(error) => {
-            tracing::error!(%error, "Failed to read from cache");
-            Ok(Response::builder()
-                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                .body(Body::empty())
-                .unwrap())
-        }
+        let mut c = self.clone();
+        async move { c.on_request(request).await }.boxed()
     }
 }
 
@@ -144,3 +181,7 @@ async fn send_part(
 
     part
 }
+
+static HEADERS_TO_KEEP: phf::Set<&'static str> = phf_set! {
+    "content-encoding"
+};

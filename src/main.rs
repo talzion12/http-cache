@@ -1,9 +1,6 @@
-use std::{
-    net::{IpAddr, SocketAddr},
-    path::PathBuf,
-};
+use std::net::{IpAddr, SocketAddr};
 
-use cache::{Cache, CachingLayer, FsCache, RedisCache};
+use cache::{create_cache_storage_from_url, Cache, CachingLayer};
 use clap::Parser;
 use hyper::Uri;
 use proxy::ProxyService;
@@ -44,14 +41,13 @@ async fn main() -> eyre::Result<()> {
 
     color_eyre::install()?;
 
-    let cache = create_cache(args.cache_url).await?;
+    let cache_storage = create_cache_storage_from_url(&args.cache_url).await?;
+
+    let layer = CachingLayer::<dyn Cache>::new(cache_storage);
 
     let proxy = ProxyService::new(args.upstream);
 
-    let service = ServiceBuilder::new()
-        .layer(CachingLayer::new(cache))
-        .service(proxy);
-
+    let service = ServiceBuilder::new().layer(layer).service(proxy);
     let make_service = Shared::new(service);
 
     let listen_addr = SocketAddr::new(args.host, args.port);
@@ -63,13 +59,4 @@ async fn main() -> eyre::Result<()> {
         .await?;
 
     Ok(())
-}
-
-async fn create_cache(url: Url) -> color_eyre::Result<Box<dyn Cache>> {
-    let result: Box<dyn Cache> = match url.scheme() {
-        "file" => Box::new(FsCache::new(PathBuf::from(url.path()))),
-        "redis" => Box::new(RedisCache::new(url.as_str()).await?),
-        _ => color_eyre::eyre::bail!("Scheme must be defined"),
-    };
-    Ok(result)
 }

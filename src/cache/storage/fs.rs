@@ -1,13 +1,24 @@
 use std::{io::ErrorKind, path::PathBuf};
 
 use async_trait::async_trait;
-use futures::{StreamExt, TryStreamExt};
+use futures::{
+    io::{AsyncWriteExt, BufReader, BufWriter},
+    AsyncBufReadExt, StreamExt, TryStreamExt,
+};
 use hyper::Uri;
 use sha2::{Digest, Sha256};
 use tokio::fs::File;
-use tokio_util::{compat::TokioAsyncWriteCompatExt, io::ReaderStream};
+use tokio_util::{
+    compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt},
+    io::ReaderStream,
+};
 
-use super::base::{Cache, Cached, SetValue};
+use crate::cache::metadata::CacheMetadata;
+
+use super::{
+    base::{GetReturn, SetBody},
+    Cache,
+};
 
 pub struct FsCache {
     base_dir: PathBuf,
@@ -37,7 +48,7 @@ impl FsCache {
 #[async_trait]
 impl Cache for FsCache {
     #[tracing::instrument(skip(self))]
-    async fn get(&self, key: &Uri) -> eyre::Result<Option<Cached>> {
+    async fn get(&self, key: &Uri) -> eyre::Result<GetReturn> {
         let path = self.get_path(key);
         tracing::debug!("Path is {path:?}");
         let file = match File::open(path).await {
@@ -51,18 +62,25 @@ impl Cache for FsCache {
             }
         };
 
-        Ok(Some(Box::new(ReaderStream::new(file))))
+        let mut file = BufReader::new(file.compat());
+        let mut metadata_buffer = Vec::new();
+        file.read_until(b'\n', &mut metadata_buffer).await?;
+
+        let metadata: CacheMetadata = serde_json::from_slice(&metadata_buffer)?;
+
+        Ok(Some((metadata, Box::new(ReaderStream::new(file.compat())))))
     }
 
-    #[tracing::instrument(skip(self, value))]
-    async fn set(&self, key: &Uri, value: SetValue) -> eyre::Result<()> {
+    #[tracing::instrument(skip(self, value, metadata))]
+    async fn set(&self, key: &Uri, value: SetBody, metadata: CacheMetadata) -> eyre::Result<()> {
         let path = self.get_path(key);
-        let file = File::create(path).await?;
-        futures::io::copy(
-            value.map(|part| Ok(part)).into_async_read(),
-            &mut file.compat_write(),
-        )
-        .await?;
+        let mut file = BufWriter::new(File::create(path).await?.compat_write());
+
+        file.write_all(serde_json::to_string(&metadata)?.as_bytes())
+            .await?;
+        file.write_all("\n".as_bytes()).await?;
+
+        futures::io::copy(value.map(|part| Ok(part)).into_async_read(), &mut file).await?;
 
         Ok(())
     }

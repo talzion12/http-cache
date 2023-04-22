@@ -1,4 +1,11 @@
-.direnv
-.env
-.vscode
-target
+/.direnv
+/.env
+/.envrc
+/.gitignore
+/.vscode
+/Dockerfile
+/flake.lock
+/flake.nix
+/fs-cache
+/result
+/target
