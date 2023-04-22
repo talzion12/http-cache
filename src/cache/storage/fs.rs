@@ -2,11 +2,10 @@ use std::{io::ErrorKind, path::PathBuf};
 
 use async_trait::async_trait;
 use futures::{
-    io::{AsyncWriteExt, BufReader, BufWriter},
-    AsyncBufReadExt, StreamExt, TryStreamExt,
+    io::{BufReader, BufWriter},
+    StreamExt, TryStreamExt,
 };
 use hyper::Uri;
-use sha2::{Digest, Sha256};
 use tokio::fs::File;
 use tokio_util::{
     compat::{FuturesAsyncReadCompatExt, TokioAsyncReadCompatExt, TokioAsyncWriteCompatExt},
@@ -17,6 +16,7 @@ use crate::cache::metadata::CacheMetadata;
 
 use super::{
     base::{GetReturn, SetBody},
+    util::{hash_uri, strip_metadata_prefix, write_metadata_prefix},
     Cache,
 };
 
@@ -33,14 +33,7 @@ impl FsCache {
 
 impl FsCache {
     fn get_path(&self, key: &Uri) -> PathBuf {
-        let mut hasher = Sha256::new();
-
-        // write input message
-        hasher.update(key.to_string().as_bytes());
-
-        // read hash digest and consume hasher
-        let key_hash = hex::encode(hasher.finalize().as_slice());
-
+        let key_hash = hash_uri(key);
         self.base_dir.join(key_hash)
     }
 }
@@ -63,10 +56,7 @@ impl Cache for FsCache {
         };
 
         let mut file = BufReader::new(file.compat());
-        let mut metadata_buffer = Vec::new();
-        file.read_until(b'\n', &mut metadata_buffer).await?;
-
-        let metadata: CacheMetadata = serde_json::from_slice(&metadata_buffer)?;
+        let metadata = strip_metadata_prefix(&mut file).await?;
 
         Ok(Some((metadata, Box::new(ReaderStream::new(file.compat())))))
     }
@@ -76,9 +66,7 @@ impl Cache for FsCache {
         let path = self.get_path(key);
         let mut file = BufWriter::new(File::create(path).await?.compat_write());
 
-        file.write_all(serde_json::to_string(&metadata)?.as_bytes())
-            .await?;
-        file.write_all("\n".as_bytes()).await?;
+        write_metadata_prefix(&mut file, &metadata).await?;
 
         futures::io::copy(value.map(|part| Ok(part)).into_async_read(), &mut file).await?;
 
