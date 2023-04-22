@@ -397,6 +397,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "http-cache"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "clap",
+ "color-eyre",
+ "dotenv",
+ "eyre",
+ "futures",
+ "http",
+ "hyper",
+ "hyper-rustls",
+ "redis",
+ "tokio",
+ "tower",
+ "tower-http",
+ "tracing",
+ "tracing-error",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "http-range-header"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -714,28 +736,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "url",
-]
-
-[[package]]
-name = "redis-cache"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "clap",
- "color-eyre",
- "dotenv",
- "eyre",
- "futures",
- "http",
- "hyper",
- "hyper-rustls",
- "redis",
- "tokio",
- "tower",
- "tower-http",
- "tracing",
- "tracing-error",
- "tracing-subscriber",
 ]
 
 [[package]]

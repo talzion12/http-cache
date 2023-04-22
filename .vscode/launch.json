@@ -7,15 +7,15 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug executable 'redis-cache'",
+      "name": "Debug executable 'http-cache'",
       "cargo": {
         "args": [
           "build",
-          "--bin=redis-cache",
-          "--package=redis-cache"
+          "--bin=http-cache",
+          "--package=http-cache"
         ],
         "filter": {
-          "name": "redis-cache",
+          "name": "http-cache",
           "kind": "bin"
         }
       },
@@ -25,16 +25,16 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in executable 'redis-cache'",
+      "name": "Debug unit tests in executable 'http-cache'",
       "cargo": {
         "args": [
           "test",
           "--no-run",
-          "--bin=redis-cache",
-          "--package=redis-cache"
+          "--bin=http-cache",
+          "--package=http-cache"
         ],
         "filter": {
-          "name": "redis-cache",
+          "name": "http-cache",
           "kind": "bin"
         }
       },
