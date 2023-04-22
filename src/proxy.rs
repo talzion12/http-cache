@@ -1,12 +1,15 @@
 use std::task::{Context, Poll};
 
-use hyper::{client::{HttpConnector, ResponseFuture}, Request, Body, Uri};
+use hyper::{
+    client::{HttpConnector, ResponseFuture},
+    Body, Request, Uri,
+};
 use hyper_rustls::HttpsConnector;
 
 #[derive(Clone)]
 pub struct ProxyService {
     uri: Uri,
-    client: hyper::Client<HttpsConnector<HttpConnector>>
+    client: hyper::Client<HttpsConnector<HttpConnector>>,
 }
 
 impl ProxyService {
@@ -20,10 +23,7 @@ impl ProxyService {
 
         let client = hyper::Client::builder().build(connector);
 
-        Self {
-            uri,
-            client,
-        }
+        Self { uri, client }
     }
 }
 

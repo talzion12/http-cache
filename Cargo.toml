@@ -6,19 +6,27 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-async-trait = "0.1.57"
-clap = { version = "3.2.20", features = ["derive"] }
+async-trait = "0.1.68"
+clap = { version = "4.2.4", features = ["derive"] }
 color-eyre = "0.6"
 dotenv = "0.15.0"
-eyre = "0.6.1"
-futures = "0.3.24"
-http = "0.2.8"
-hyper = { version = "0.14.20", features = ["client", "server", "stream"] }
-hyper-rustls = { version = "0.23.0", features = ["http2"] }
-redis = { version = "0.21.6", features = [ "aio", "connection-manager", "tokio-comp" ] }
-tokio = { version = "1.0", features = ["full"] }
+eyre = "0.6.8"
+url = "2.3.1"
+futures = "0.3.28"
+http = "0.2.9"
+hyper = { version = "0.14.26", features = ["client", "server", "stream"] }
+hyper-rustls = { version = "0.24.0", features = ["http2"] }
+redis = { version = "0.23.0", features = [
+  "aio",
+  "connection-manager",
+  "tokio-comp",
+] }
+tokio-util = { version = "0.7.7", features = ["compat"] }
+tokio = { version = "1.27", features = ["full"] }
 tower = { version = "0.4.13", features = ["make"] }
-tower-http = "0.3.4"
-tracing = "0.1.36"
+tower-http = "0.4.0"
+tracing = "0.1.37"
 tracing-error = "0.2.0"
-tracing-subscriber = { version = "0.3.15", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"] }
+sha2 = "0.10.6"
+hex = "0.4.3"
