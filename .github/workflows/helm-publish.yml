@@ -29,7 +29,7 @@ jobs:
         run: |
           chart_path="charts/http-cache"
           dest_dir="$(mktemp -d)"
-          push_target="oci://$REGISTRY/$IMAGE_REPO:$GITHUB_REF"
+          push_target="oci://$REGISTRY/$IMAGE_REPO:$GITHUB_REF_NAME"
 
           echo "Authenticating"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
