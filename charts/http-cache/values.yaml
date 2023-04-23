@@ -62,3 +62,6 @@ affinity: {}
 volumes: []
 volumeMounts: []
 env: []
+
+readinessProbe: null
+livenessProbe: null

@@ -50,14 +50,12 @@ spec:
             - name: http
               containerPort: 8080
               protocol: TCP
-          livenessProbe:
-            httpGet:
-              path: /
-              port: http
-          readinessProbe:
-            httpGet:
-              path: /
-              port: http
+{{ if .Values.livenessProbe }}
+          livenessProbe: {{ .Values.livenessProbe | toYaml | nindent 12 }}
+{{ end }}
+{{ if .Values.readinessProbe }}
+          readinessProbe: {{ .Values.readinessProbe | toYaml | nindent 12 }}
+{{ end }}
           volumeMounts:
 {{ if .Values.gcs.serviceAccountKey }}
             - name: gcs
