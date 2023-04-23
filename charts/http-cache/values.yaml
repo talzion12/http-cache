@@ -7,8 +7,10 @@ replicaCount: 1
 image:
   repository: ghcr.io/talzion12/http-cache
   pullPolicy: IfNotPresent
-  tag: "main"
+  # tag: "main"
 
+upstream:
+  # url:
 cache:
   url: file:///var/http-cache
 

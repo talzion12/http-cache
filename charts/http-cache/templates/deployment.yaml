@@ -32,7 +32,14 @@ spec:
             {{- toYaml .Values.securityContext | nindent 12 }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env: {{ .Values.env | toYaml | nindent 12 }}
+          env:
+            - name: UPSTREAM_URL
+              value: {{ .Values.upstream.url | required 'Must set upstream' | quote }}
+            - name: CACHE_URL
+              value: {{ .Values.cache.url | required 'Must set cache.url' | quote }}
+
+{{ .Values.env | toYaml | indent 12 }}
+
           ports:
             - name: http
               containerPort: 8080

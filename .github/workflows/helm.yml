@@ -51,7 +51,8 @@ jobs:
           echo "Building"
           helm package "$chart_path" \
             --destination "$dest_dir" \
-            --version "$version"
+            --version "$version" \
+            --app-version "$version"
 
           echo "Pushing to $push_target"
           helm push "$dest_dir/http-cache-$version.tgz" "$push_target"
