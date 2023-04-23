@@ -63,5 +63,11 @@ volumes: []
 volumeMounts: []
 env: []
 
-readinessProbe: null
-livenessProbe: null
+readinessProbe:
+  tcpSocket:
+    port: 8080
+  initialDelaySeconds: 1
+livenessProbe:
+  tcpSocket:
+    port: 8080
+  initialDelaySeconds: 5
