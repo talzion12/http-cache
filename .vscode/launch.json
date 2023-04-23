@@ -20,8 +20,8 @@
         }
       },
       "args": [
-        "https://wecare.app",
-        "file:///${cwd}/fs-cache/"
+        "--upstream=https://wecare.app",
+        "--cache-url=file:///${cwd}/fs-cache/"
       ],
       "cwd": "${workspaceFolder}"
     },
