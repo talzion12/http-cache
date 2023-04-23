@@ -1,7 +1,11 @@
-use std::net::{IpAddr, SocketAddr};
+use std::{
+    io::ErrorKind,
+    net::{IpAddr, SocketAddr},
+};
 
 use cache::CachingLayer;
 use clap::Parser;
+use eyre::Context;
 use hyper::{client::HttpConnector, Body, Uri};
 use hyper_rustls::HttpsConnector;
 use proxy::ProxyService;
@@ -34,7 +38,15 @@ struct Args {
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
-    dotenv::dotenv()?;
+    match dotenv::dotenv() {
+        Ok(path) => {
+            tracing::info!("Loaded env from {path:?}")
+        }
+        Err(dotenv::Error::Io(error)) if error.kind() == ErrorKind::NotFound => {
+            tracing::debug!("Not loading .env because it wasn't found");
+        }
+        Err(error) => return Err(error).context("Failed to load .env"),
+    };
 
     let args = Args::parse();
 
