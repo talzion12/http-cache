@@ -1,14 +1,13 @@
 use std::net::{IpAddr, SocketAddr};
 
-use cache::{create_cache_storage_from_url, Cache, CachingLayer};
+use cache::CachingLayer;
 use clap::Parser;
-use hyper::Uri;
+use hyper::{client::HttpConnector, Body, Uri};
+use hyper_rustls::HttpsConnector;
 use proxy::ProxyService;
 use tower::{make::Shared, ServiceBuilder};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{
-    prelude::__tracing_subscriber_SubscriberExt, util::SubscriberInitExt, EnvFilter,
-};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use url::Url;
 
 mod cache;
@@ -17,13 +16,19 @@ mod proxy;
 #[derive(clap::Parser, Debug)]
 #[clap(author, version, about, long_about = None)]
 struct Args {
+    #[clap(long, env = "UPSTREAM_URL")]
     upstream: Uri,
+
+    #[clap(long, env = "CACHE_URL")]
     cache_url: Url,
 
-    #[clap(long, default_value = "0.0.0.0")]
+    #[clap(long, env = "CACHE_URL_2")]
+    cache_url_2: Option<Url>,
+
+    #[clap(long, env = "HOST", default_value = "0.0.0.0")]
     host: IpAddr,
 
-    #[clap(long, default_value = "3200")]
+    #[clap(long, env = "PORT", default_value = "8080")]
     port: u16,
 }
 
@@ -41,13 +46,28 @@ async fn main() -> eyre::Result<()> {
 
     color_eyre::install()?;
 
-    let cache_storage = create_cache_storage_from_url(&args.cache_url).await?;
+    let cache_layer = CachingLayer::from_url(&args.cache_url).await?;
 
-    let layer = CachingLayer::<dyn Cache>::new(cache_storage);
+    let cache_layer_2 = tower::util::option_layer(if let Some(cache_url_2) = &args.cache_url_2 {
+        Some(CachingLayer::from_url(cache_url_2).await?)
+    } else {
+        None
+    });
 
-    let proxy = ProxyService::new(args.upstream);
+    let client = hyper::Client::builder().build(
+        hyper_rustls::HttpsConnectorBuilder::new()
+            .with_native_roots()
+            .https_or_http()
+            .enable_http1()
+            .enable_http2()
+            .build(),
+    );
+    let proxy = ProxyService::<HttpsConnector<HttpConnector>, Body>::new(args.upstream, client);
 
-    let service = ServiceBuilder::new().layer(layer).service(proxy);
+    let service = ServiceBuilder::new()
+        .layer(cache_layer_2)
+        .layer(cache_layer)
+        .service(proxy);
     let make_service = Shared::new(service);
 
     let listen_addr = SocketAddr::new(args.host, args.port);

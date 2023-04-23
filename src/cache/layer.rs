@@ -7,10 +7,11 @@ use futures::{channel::mpsc::channel, future::BoxFuture, FutureExt, SinkExt, Str
 use http::{Request, Response, StatusCode};
 use hyper::{body::Bytes, Body};
 use phf::phf_set;
+use url::Url;
 
 use crate::cache::metadata::CacheMetadata;
 
-use super::{storage::Cache, GetBody};
+use super::{create_cache_storage_from_url, storage::Cache, GetBody};
 
 pub struct CachingLayer<C: ?Sized> {
     cache: Arc<C>,
@@ -21,6 +22,13 @@ impl<C: ?Sized> CachingLayer<C> {
         Self {
             cache: cache.into(),
         }
+    }
+}
+
+impl CachingLayer<dyn Cache> {
+    pub async fn from_url(url: &Url) -> color_eyre::Result<Self> {
+        let storage = create_cache_storage_from_url(url).await?;
+        Ok(Self::new(storage))
     }
 }
 
@@ -72,7 +80,7 @@ where
         metadata: CacheMetadata,
         body: GetBody,
     ) -> Result<Response<Body>, hyper::Error> {
-        tracing::debug!("Found in cache");
+        tracing::debug!("Cache hit");
 
         let mut builder = Response::builder().status(metadata.status);
 
@@ -98,40 +106,47 @@ where
         &mut self,
         request: Request<Body>,
     ) -> Result<Response<Body>, hyper::Error> {
-        tracing::debug!("Not found in cache");
+        tracing::debug!("Cache miss");
+
         let uri = request.uri().clone();
         let response = self.inner.call(request).await?;
 
-        if response.status().is_success() {
-            let (parts, body) = response.into_parts();
-
-            let metadata = CacheMetadata {
-                status: parts.status.as_u16(),
-                headers: parts
-                    .headers
-                    .iter()
-                    .filter(|(key, _)| HEADERS_TO_KEEP.contains(key.as_str()))
-                    .map(|(key, value)| (key.to_string(), value.as_bytes().to_vec()))
-                    .collect(),
-            };
-
-            let (sender, receiver) = channel::<Bytes>(10);
-            let cache_cloned = self.cache.clone();
-
-            tokio::spawn(async move {
-                match cache_cloned.set(&uri, receiver, metadata).await {
-                    Ok(()) => tracing::debug!("Wrote to cache"),
-                    Err(err) => tracing::error!("Failed to write to cache {err:?}"),
-                }
-            });
-
-            let res_body =
-                Body::wrap_stream(body.then(move |part| send_part(part, sender.clone())));
-
-            Ok(Response::from_parts(parts, res_body))
-        } else {
-            Ok(response)
+        if !response.status().is_success() {
+            tracing::debug!(
+                "Not caching response because the status code is {}",
+                response.status()
+            );
+            return Ok(response);
         }
+
+        let (parts, body) = response.into_parts();
+
+        let metadata = CacheMetadata {
+            status: parts.status.as_u16(),
+            headers: parts
+                .headers
+                .iter()
+                .filter(|(key, _)| HEADERS_TO_KEEP.contains(key.as_str()))
+                .map(|(key, value)| (key.to_string(), value.as_bytes().to_vec()))
+                .collect(),
+        };
+
+        let (sender, receiver) = channel::<Bytes>(10);
+        let cache_cloned = self.cache.clone();
+
+        tokio::spawn(async move {
+            match cache_cloned.set(&uri, receiver, metadata).await {
+                Ok(()) => tracing::debug!("Wrote to cache"),
+                Err(err) => tracing::error!("Failed to write to cache {err:?}"),
+            }
+        });
+
+        let res_body = Body::wrap_stream(body.then(move |part| {
+            tracing::debug!("Received part");
+            send_part(part, sender.clone())
+        }));
+
+        Ok(Response::from_parts(parts, res_body))
     }
 }
 
@@ -183,5 +198,6 @@ async fn send_part(
 }
 
 static HEADERS_TO_KEEP: phf::Set<&'static str> = phf_set! {
-    "content-encoding"
+    "content-encoding",
+    "content-type"
 };
