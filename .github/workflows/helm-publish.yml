@@ -31,7 +31,7 @@ jobs:
           dest_dir="$(mktemp -d)"
           helm package "charts/http-cache" --destination "$dest_dir"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
-          helm push "$dest_dir/*.tgz" oci://$REGISTRY/$IMAGE_NAME:$TAG
+          helm push "$dest_dir/http-cache-0.1.0.tgz" oci://$REGISTRY/$IMAGE_NAME:$TAG
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ env.GITHUB_REF_NAME }}
