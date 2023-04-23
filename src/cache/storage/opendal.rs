@@ -56,8 +56,10 @@ impl Cache for OpendalStorage {
         write_metadata_prefix(&mut writer, &metadata).await?;
 
         while let Some(part) = value.next().await {
-            writer.append(part).await?;
+            writer.write(part).await?;
         }
+
+        writer.close().await?;
 
         Ok(())
     }
