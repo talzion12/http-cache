@@ -28,9 +28,10 @@ jobs:
       - name: Build chart
         run: |
           chart_path="$(realpath charts/http-cache)"
-          cd "$(mktemp -d)"
-          helm package "$chart_path"
+          dest_dir="$(mktemp -d)"
+          helm package "charts/http-cache" --destination "$dest_dir"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
-          helm push $REGISTRY/$IMAGE_NAME:latest
+          helm push "$dest_dir/*.tgz" $REGISTRY/$IMAGE_NAME:$TAG
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ env.GITHUB_REF_NAME }}
