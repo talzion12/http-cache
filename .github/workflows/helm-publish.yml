@@ -32,6 +32,8 @@ jobs:
           push_target="oci://$REGISTRY/$IMAGE_REPO"
           version="$(./scripts/version)"
 
+          npm install
+
           echo "Authenticating"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
 
