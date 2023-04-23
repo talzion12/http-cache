@@ -1,0 +1,43 @@
+name: Helm
+
+on:
+  push:
+    branches: ["main"]
+    # Publish semver tags as releases.
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  # Use docker.io for Docker Hub if empty
+  REGISTRY: ghcr.io
+  # github.repository as <account>/<repo>
+  IMAGE_REPO: ${{ github.repository }}/helm
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Build chart
+        run: |
+          chart_path="charts/http-cache"
+          dest_dir="$(mktemp -d)"
+          push_target="oci://$REGISTRY/$IMAGE_REPO"
+
+          echo "Authenticating"
+          echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
+
+          echo "Building"
+          helm package "$chart_path" --destination "$dest_dir"
+
+          echo "Pushing to $push_target"
+          helm push "$dest_dir/http-cache-0.1.0.tgz" "$push_target"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

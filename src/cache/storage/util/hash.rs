@@ -12,5 +12,9 @@ pub fn hash_uri(uri: &Uri) -> String {
     if let Some(path_and_query) = uri.path_and_query() {
         hasher.update(path_and_query.as_str());
     }
-    hex::encode(hasher.finalize().as_slice())
+    let result = hex::encode(hasher.finalize().as_slice());
+
+    tracing::debug!("Hash of {uri} is {result}");
+
+    result
 }

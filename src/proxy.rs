@@ -1,33 +1,37 @@
 use std::task::{Context, Poll};
 
-use hyper::{
-    client::{HttpConnector, ResponseFuture},
-    Body, Request, Uri,
-};
-use hyper_rustls::HttpsConnector;
+use hyper::{client::ResponseFuture, Body, Request, Uri};
 
-#[derive(Clone)]
-pub struct ProxyService {
+pub struct ProxyService<C, B> {
     uri: Uri,
-    client: hyper::Client<HttpsConnector<HttpConnector>>,
+    client: hyper::Client<C, B>,
 }
 
-impl ProxyService {
-    pub fn new(uri: Uri) -> Self {
-        let connector = hyper_rustls::HttpsConnectorBuilder::new()
-            .with_native_roots()
-            .https_or_http()
-            .enable_http1()
-            .enable_http2()
-            .build();
-
-        let client = hyper::Client::builder().build(connector);
-
+impl<C, B> ProxyService<C, B> {
+    pub fn new(uri: Uri, client: hyper::Client<C, B>) -> Self {
         Self { uri, client }
     }
 }
 
-impl tower::Service<Request<Body>> for ProxyService {
+impl<C, B> Clone for ProxyService<C, B>
+where
+    C: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            uri: self.uri.clone(),
+            client: self.client.clone(),
+        }
+    }
+}
+
+impl<C, B> tower::Service<Request<B>> for ProxyService<C, B>
+where
+    C: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
+    B: hyper::body::HttpBody + Send + 'static,
+    B::Data: Send,
+    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
+{
     type Response = hyper::Response<Body>;
     type Error = hyper::Error;
     type Future = ResponseFuture;
@@ -36,8 +40,8 @@ impl tower::Service<Request<Body>> for ProxyService {
         Poll::Ready(Ok(()))
     }
 
-    #[tracing::instrument(skip(self))]
-    fn call(&mut self, mut request: Request<Body>) -> Self::Future {
+    #[tracing::instrument(skip(self, request))]
+    fn call(&mut self, mut request: Request<B>) -> Self::Future {
         let mut parts = self.uri.clone().into_parts();
         parts.path_and_query = request.uri().path_and_query().cloned();
         *request.uri_mut() = Uri::from_parts(parts).unwrap();

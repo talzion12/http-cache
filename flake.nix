@@ -19,8 +19,6 @@
             "^src.*$"
             "^Cargo\.toml$"
             "^Cargo\.lock$"
-            "^build\.rs$"
-            "^queries\.graphql$"
           ];
 
           cargoLock = {
@@ -31,14 +29,8 @@
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             rustup
+            kubernetes-helm
           ];
-        };
-        packages.docker = pkgs.dockerTools.buildImage {
-          name = "gcr.io/wecare-190609/http-cache";
-          contents = defaultPackage;
-          config = {
-            Cmd = [ "${defaultPackage}/bin/http-cache" ];
-          };
         };
       }
     );
