@@ -33,6 +33,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install node dependencies
+        run: npm install
+
+      - id: version
+        name: Determine version
+        run: |
+          version="$(./scripts/version)"
+          echo "version=$version" >> $GITHUB_OUTPUT
+
       # Install the cosign tool except on PR
       # https://github.com/sigstore/cosign-installer
       - name: Install cosign
@@ -71,7 +84,7 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: ${{ steps.version.outputs.version }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
