@@ -25,14 +25,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install node dependencies
+        run: npm install
+
       - name: Build chart
         run: |
           chart_path="charts/http-cache"
           dest_dir="$(mktemp -d)"
           push_target="oci://$REGISTRY/$IMAGE_REPO"
           version="$(./scripts/version)"
-
-          npm install
 
           echo "Authenticating"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
