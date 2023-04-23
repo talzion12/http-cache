@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+
+set -e
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+BASE_VERSION=$($SCRIPT_DIR/version-base)
+
+FULL_COMMIT_HASH=$(git rev-parse HEAD)
+CURRENT_TAG="$(git tag --points-at HEAD)"
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+COMMIT_HASH=$(echo $FULL_COMMIT_HASH | cut -c -6)
+
+if test -z "$CURRENT_TAG" && test -z "$CURRENT_BRANCH"; then
+  echo "Couldn't detect either tag or branch"
+  exit 1
+fi
+
+if test -z "$CURRENT_TAG"; then
+  case "$CURRENT_BRANCH" in
+    "main")
+      CLEAN_VERSION=$BASE_VERSION-beta-$COMMIT_HASH
+      ;;
+    "develop")
+      CLEAN_VERSION=$BASE_VERSION-beta-$COMMIT_HASH
+      ;;
+    *)
+      CLEAN_VERSION=$BASE_VERSION-alpha-$COMMIT_HASH
+      ;;
+  esac
+else
+  CLEAN_VERSION="$CURRENT_TAG"
+fi
+
+if test -n "$(git status --porcelain)"; then
+  VERSION="$CLEAN_VERSION-dirty"
+else
+  VERSION="$CLEAN_VERSION"
+fi
+
+echo "$VERSION"

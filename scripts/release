@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+cd "$SCRIPT_DIR"
+
+source "color-util.sh"
+
+if test -z "$CI" && test -n "$(git status --porcelain)"; then
+  echo $(red "==> Version is not clean $VERSION")
+  exit 1
+fi
+
+BASE_VERSION="$(./version-base)"
+
+TAG="v$BASE_VERSION"
+
+echo $(green "==> Tagging $TAG")
+
+git tag "$TAG"
+
+echo $(green "==> Pushing")
+git push -o ci.skip
+git push origin "$TAG" --no-verify
+
+echo $(green "==> Done")

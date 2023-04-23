@@ -1,0 +1,21 @@
+extends:
+- '@commitlint/config-conventional'
+
+rules:
+  'type-enum':
+  - 2
+  - 'always'
+  - [
+    'analytics',
+    'build',
+    'chore',
+    'ci',
+    'docs',
+    'feat',
+    'fix',
+    'perf',
+    'refactor',
+    'revert',
+    'style',
+    'test'
+  ]

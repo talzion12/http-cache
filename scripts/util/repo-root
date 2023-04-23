@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if test -z "$CI_PROJECT_DIR"; then
+  git rev-parse --show-toplevel
+else
+  echo "$CI_PROJECT_DIR"
+fi

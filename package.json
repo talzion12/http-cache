@@ -1,0 +1,18 @@
+{
+  "version": "0.1.0",
+  "license": "UNLICENSED",
+  "scripts": {
+    "changelog": "conventional-changelog --infile CHANGELOG.md --same-file -p conventionalcommits",
+    "release:prepare": "./scripts/prepare-release",
+    "release": "./scripts/release",
+    "version:bump:recommended": "npm run version:bump $(npm run --silent version:recommended-bump)",
+    "version:bump": "npm version --no-git-tag-version --no-commit-hooks",
+    "version:recommended-bump": "conventional-recommended-bump -p conventionalcommits"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^17.4.2",
+    "@commitlint/config-conventional": "^17.4.2",
+    "conventional-changelog-cli": "^2.2.2",
+    "conventional-recommended-bump": "^6.1.0"
+  }
+}
