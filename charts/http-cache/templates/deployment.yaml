@@ -38,6 +38,10 @@ spec:
             - name: CACHE_URL
               value: {{ .Values.cache.url | required "cache.url is required" | quote }}
 
+{{ if .Values.gcs.serviceAccountKey }}
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /etc/http-cache/gcs/service-account-key.json
+{{ end }}
 {{ if .Values.env }}
 {{ .Values.env | toYaml | indent 12 }}
 {{ end }}
@@ -54,8 +58,25 @@ spec:
             httpGet:
               path: /
               port: http
+          volumeMounts:
+{{ if .Values.gcs.serviceAccountKey }}
+            - name: gcs
+              mountPath: /etc/http-cache/gcs
+{{ end }}
+{{ if .Values.volumeMounts }}
+{{ .Values.volumeMounts | toYaml | indent 12 }}
+{{ end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+{{ if .Values.gcs.serviceAccountKey }}
+        - name: gcs
+          secret:
+            secretName: {{ include "http-cache.fullname" . }}-gcs
+{{ end }}
+{{ if .Values.volumes }}
+{{ .Values.volumes | toYaml | indent 8 }}
+{{ end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

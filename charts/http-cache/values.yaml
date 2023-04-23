@@ -10,10 +10,12 @@ image:
   # tag: "main"
 
 upstream:
-  # url:
-  {}
+  url: null
 cache:
-  url: file:///var/http-cache
+  url: file:///var/http-cache/fs-cache
+
+gcs:
+  serviceAccountKey: null
 
 imagePullSecrets: []
 nameOverride: ""
@@ -59,4 +61,4 @@ affinity: {}
 
 volumes: []
 volumeMounts: []
-env: {}
+env: []
