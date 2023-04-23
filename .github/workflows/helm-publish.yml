@@ -30,12 +30,15 @@ jobs:
           chart_path="charts/http-cache"
           dest_dir="$(mktemp -d)"
           push_target="oci://$REGISTRY/$IMAGE_REPO"
+          version="$(./scripts/version)"
 
           echo "Authenticating"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
 
           echo "Building"
-          helm package "$chart_path" --destination "$dest_dir"
+          helm package "$chart_path" \
+            --destination "$dest_dir" \
+            --version "$version"
 
           echo "Pushing to $push_target"
           helm push "$dest_dir/http-cache-0.1.0.tgz" "$push_target"
