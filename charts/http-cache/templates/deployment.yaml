@@ -34,11 +34,13 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: UPSTREAM_URL
-              value: {{ .Values.upstream.url | required 'Must set upstream' | quote }}
+              value: {{ .Values.upstream.url | required "upstream.url is required" | quote }}
             - name: CACHE_URL
-              value: {{ .Values.cache.url | required 'Must set cache.url' | quote }}
+              value: {{ .Values.cache.url | required "cache.url is required" | quote }}
 
+{{ if .Values.env }}
 {{ .Values.env | toYaml | indent 12 }}
+{{ end }}
 
           ports:
             - name: http
