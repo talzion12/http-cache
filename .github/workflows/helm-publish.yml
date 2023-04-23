@@ -31,6 +31,6 @@ jobs:
           cd "$(mktemp -d)"
           helm package "$chart_path"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
-          helm chart push $REGISTRY/$IMAGE_NAME:latest
+          helm push $REGISTRY/$IMAGE_NAME:latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
