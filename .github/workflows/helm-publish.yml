@@ -41,4 +41,4 @@ jobs:
           helm push "$dest_dir/http-cache-0.1.0.tgz" "$push_target"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ env.GITHUB_REF_NAME }}
+          TAG: ${{ env.GITHUB_REF }}
