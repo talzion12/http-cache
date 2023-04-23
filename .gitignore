@@ -1,3 +1,4 @@
 /target
 .direnv
 /fs-cache
+/node_modules

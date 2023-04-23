@@ -10,6 +10,7 @@
     utils.lib.eachDefaultSystem (system:
       let 
         pkgs = nixpkgs.legacyPackages.${system};
+        nodejs = pkgs.nodejs-18_x;
       in rec {
         defaultPackage = pkgs.rustPlatform.buildRustPackage {
           pname = "http-cache";
@@ -28,8 +29,9 @@
 
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
-            rustup
             kubernetes-helm
+            nodejs
+            rustup
           ];
         };
       }
