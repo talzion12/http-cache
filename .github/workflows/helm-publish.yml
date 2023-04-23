@@ -27,11 +27,18 @@ jobs:
 
       - name: Build chart
         run: |
-          chart_path="$(realpath charts/http-cache)"
+          chart_path="charts/http-cache"
           dest_dir="$(mktemp -d)"
-          helm package "charts/http-cache" --destination "$dest_dir"
+          push_target="oci://$REGISTRY/$IMAGE_REPO:$TAG"
+
+          echo "Authenticating"
           echo "$GITHUB_TOKEN" | helm registry login -u "GitHubActions" --password-stdin "$REGISTRY"
-          helm push "$dest_dir/http-cache-0.1.0.tgz" oci://$REGISTRY/$IMAGE_REPO:$TAG
+
+          echo "Building"
+          helm package "$chart_path" --destination "$dest_dir"
+
+          echo "Pushing to $push_target"
+          helm push "$dest_dir/http-cache-0.1.0.tgz" "$push_target"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ env.GITHUB_REF_NAME }}
