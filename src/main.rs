@@ -1,40 +1,21 @@
-use std::{
-    io::ErrorKind,
-    net::{IpAddr, SocketAddr},
-};
+use std::{io::ErrorKind, net::SocketAddr};
 
 use cache::CachingLayer;
 use clap::Parser;
 use eyre::Context;
-use hyper::{client::HttpConnector, Body, Uri};
+use http::Request;
+use hyper::{client::HttpConnector, Body};
 use hyper_rustls::HttpsConnector;
 use proxy::ProxyService;
 use tower::{make::Shared, ServiceBuilder};
 use tracing_error::ErrorLayer;
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-use url::Url;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 mod cache;
+mod options;
 mod proxy;
 
-#[derive(clap::Parser, Debug)]
-#[clap(author, version, about, long_about = None)]
-struct Args {
-    #[clap(long, env = "UPSTREAM_URL")]
-    upstream: Uri,
-
-    #[clap(long, env = "CACHE_URL")]
-    cache_url: Url,
-
-    #[clap(long, env = "CACHE_URL_2")]
-    cache_url_2: Option<Url>,
-
-    #[clap(long, env = "HOST", default_value = "0.0.0.0")]
-    host: IpAddr,
-
-    #[clap(long, env = "PORT", default_value = "8080")]
-    port: u16,
-}
+use options::{LogFormat, Options};
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -48,23 +29,20 @@ async fn main() -> eyre::Result<()> {
         Err(error) => return Err(error).context("Failed to load .env"),
     };
 
-    let args = Args::parse();
+    let options = Options::parse();
 
-    tracing_subscriber::registry()
-        .with(tracing_subscriber::fmt::layer())
-        .with(EnvFilter::from_default_env())
-        .with(ErrorLayer::default())
-        .init();
+    init_tracing(&options);
 
     color_eyre::install()?;
 
-    let cache_layer = CachingLayer::from_url(&args.cache_url).await?;
+    let cache_layer = CachingLayer::from_url(&options.cache_url).await?;
 
-    let cache_layer_2 = tower::util::option_layer(if let Some(cache_url_2) = &args.cache_url_2 {
-        Some(CachingLayer::from_url(cache_url_2).await?)
-    } else {
-        None
-    });
+    let cache_layer_2 =
+        tower::util::option_layer(if let Some(cache_url_2) = &options.cache_url_2 {
+            Some(CachingLayer::from_url(cache_url_2).await?)
+        } else {
+            None
+        });
 
     let client = hyper::Client::builder().build(
         hyper_rustls::HttpsConnectorBuilder::new()
@@ -74,15 +52,27 @@ async fn main() -> eyre::Result<()> {
             .enable_http2()
             .build(),
     );
-    let proxy = ProxyService::<HttpsConnector<HttpConnector>, Body>::new(args.upstream, client);
+    let proxy = ProxyService::<HttpsConnector<HttpConnector>, Body>::new(options.upstream, client);
 
     let service = ServiceBuilder::new()
+        .layer(
+            tower_http::trace::TraceLayer::new_for_http().make_span_with(
+                |request: &Request<Body>| {
+                    tracing::info_span!(
+                        "http-request",
+                        scheme = request.uri().scheme_str(),
+                        path = request.uri().path(),
+                        query = request.uri().query()
+                    )
+                },
+            ),
+        )
         .layer(cache_layer_2)
         .layer(cache_layer)
         .service(proxy);
     let make_service = Shared::new(service);
 
-    let listen_addr = SocketAddr::new(args.host, args.port);
+    let listen_addr = SocketAddr::new(options.host, options.port);
 
     tracing::info!("Listening on {listen_addr}");
 
@@ -91,4 +81,16 @@ async fn main() -> eyre::Result<()> {
         .await?;
 
     Ok(())
+}
+
+fn init_tracing(opts: &Options) {
+    tracing_subscriber::registry()
+        .with(match opts.log_format {
+            LogFormat::Json => tracing_subscriber::fmt::layer().json().boxed(),
+            LogFormat::Pretty => tracing_subscriber::fmt::layer().pretty().boxed(),
+            LogFormat::Text => tracing_subscriber::fmt::layer().boxed(),
+        })
+        .with(ErrorLayer::default())
+        .with(EnvFilter::from_default_env())
+        .init()
 }

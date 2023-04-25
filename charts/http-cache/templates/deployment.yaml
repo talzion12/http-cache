@@ -37,6 +37,10 @@ spec:
               value: {{ .Values.upstream.url | required "upstream.url is required" | quote }}
             - name: CACHE_URL
               value: {{ .Values.cache.url | required "cache.url is required" | quote }}
+            - name: RUST_LOG
+              value: {{ .Values.log.level | quote }}
+            - name: LOG_FORMAT
+              value: {{ .Values.log.format | quote }}
 
 {{ if .Values.gcs.serviceAccountKey }}
             - name: GOOGLE_APPLICATION_CREDENTIALS

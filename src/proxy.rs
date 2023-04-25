@@ -40,7 +40,6 @@ where
         Poll::Ready(Ok(()))
     }
 
-    #[tracing::instrument(skip(self, request))]
     fn call(&mut self, mut request: Request<B>) -> Self::Future {
         let mut parts = self.uri.clone().into_parts();
         parts.path_and_query = request.uri().path_and_query().cloned();

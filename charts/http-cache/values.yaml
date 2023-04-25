@@ -13,6 +13,9 @@ upstream:
   url: null
 cache:
   url: file:///var/http-cache/fs-cache
+log:
+  level: info
+  format: json
 
 gcs:
   serviceAccountKey: null
