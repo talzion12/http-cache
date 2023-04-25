@@ -11,6 +11,7 @@ use hyper::{
     Body,
 };
 use phf::phf_set;
+use tracing::Instrument;
 use url::Url;
 
 use crate::cache::metadata::CacheMetadata;
@@ -135,12 +136,15 @@ where
         let (sender, receiver) = channel::<Bytes>(10);
         let cache_cloned = self.cache.clone();
 
-        tokio::spawn(async move {
-            match cache_cloned.set(&uri, receiver, metadata).await {
-                Ok(()) => tracing::info!("Wrote to cache"),
-                Err(err) => tracing::error!("Failed to write to cache {err:?}"),
+        tokio::spawn(
+            async move {
+                match cache_cloned.set(&uri, receiver, metadata).await {
+                    Ok(()) => tracing::info!("Wrote to cache"),
+                    Err(err) => tracing::error!("Failed to write to cache {err:?}"),
+                }
             }
-        });
+            .in_current_span(),
+        );
 
         let res_body = Body::wrap_stream(body.then(move |part| {
             tracing::debug!("Received part");
