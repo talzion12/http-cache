@@ -1,3 +1,15 @@
+## [0.3.0](https://github.com/talzion12/http-cache/compare/v0.2.0...v0.3.0) (2023-04-27)
+
+
+### Features
+
+* json logging ([d2352f1](https://github.com/talzion12/http-cache/commit/d2352f1ff3342f05c035fe39c8a54701a54ff93c))
+
+
+### Bug Fixes
+
+* propagate span into cache writing task ([e0c77ba](https://github.com/talzion12/http-cache/commit/e0c77ba24bd1de39d9b4c60092eba2a9709b03a2))
+
 ## 0.2.0 (2023-04-24)
 
 
