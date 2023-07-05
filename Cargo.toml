@@ -16,7 +16,7 @@ futures = "0.3.28"
 http = { version = "0.2.9" }
 hyper = { version = "0.14.27", features = ["client", "server", "stream"] }
 hyper-rustls = { version = "0.24.0", features = ["http2"] }
-tokio-util = { version = "0.7.7", features = ["compat"] }
+tokio-util = { version = "0.7.8", features = ["compat"] }
 tokio = { version = "1.29", features = ["rt-multi-thread", "macros"] }
 tower = { version = "0.4.13", features = ["make", "util"] }
 tower-http = { version = "0.4.1", features = ["trace"] }
