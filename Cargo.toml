@@ -11,7 +11,7 @@ clap = { version = "4.2.4", features = ["derive", "env"] }
 color-eyre = "0.6"
 dotenv = "0.15.0"
 eyre = "0.6.8"
-url = "2.3.1"
+url = "2.4.0"
 futures = "0.3.28"
 http = { version = "0.2.9" }
 hyper = { version = "0.14.26", features = ["client", "server", "stream"] }
