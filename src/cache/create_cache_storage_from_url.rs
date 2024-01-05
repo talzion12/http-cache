@@ -12,15 +12,18 @@ pub async fn create_cache_storage_from_url(url: &Url) -> color_eyre::Result<Box<
         "file" => {
             let mut builder = Fs::default();
             builder.root(url.path());
+            tracing::info!("Using filesystem cache at root {}", url.path());
             Box::new(OpendalStorage::new(Operator::new(builder)?.finish()))
         }
         "gs" => {
             let mut builder = Gcs::default();
-            builder.bucket(
-                url.host_str()
-                    .ok_or_else(|| color_eyre::eyre::eyre!("Must set url host as bucket"))?,
-            );
-            builder.root(url.path());
+            let bucket = url
+                .host_str()
+                .ok_or_else(|| color_eyre::eyre::eyre!("Must set url host as bucket"))?;
+            let root = url.path();
+            builder.bucket(bucket);
+            builder.root(root);
+            tracing::info!("Using google cloud cache at bucket {bucket} with root {root}");
             Box::new(OpendalStorage::new(Operator::new(builder)?.finish()))
         }
         other => color_eyre::eyre::bail!("Scheme not supported {other}"),

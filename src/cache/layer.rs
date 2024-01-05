@@ -1,75 +1,71 @@
 use std::{
-    marker::PhantomData,
     sync::Arc,
     task::{Context, Poll},
 };
 
 use futures::{channel::mpsc::channel, future::BoxFuture, FutureExt, SinkExt, StreamExt};
-use http::{Request, Response, StatusCode};
-use hyper::{
-    body::{Bytes, HttpBody},
-    Body,
-};
+use http::{Request, Response, StatusCode, Uri};
+use hyper::{body::Bytes, Body};
 use phf::phf_set;
 use tracing::Instrument;
 use url::Url;
 
-use crate::cache::metadata::CacheMetadata;
+use crate::{cache::metadata::CacheMetadata, upstream_uri::layer::UpstreamUriExt};
 
 use super::{create_cache_storage_from_url, storage::Cache, GetBody};
 
-pub struct CachingLayer<C: ?Sized, B> {
+pub struct CachingLayer<C: ?Sized> {
     cache: Arc<C>,
-    phantom: PhantomData<B>,
 }
 
-impl<C: ?Sized, B> CachingLayer<C, B> {
+impl<C: ?Sized> CachingLayer<C> {
     pub fn new(cache: impl Into<Arc<C>>) -> Self {
         Self {
             cache: cache.into(),
-            phantom: PhantomData,
         }
     }
 }
 
-impl<B> CachingLayer<dyn Cache, B> {
+impl CachingLayer<dyn Cache> {
     pub async fn from_url(url: &Url) -> color_eyre::Result<Self> {
         let storage = create_cache_storage_from_url(url).await?;
         Ok(Self::new(storage))
     }
 }
 
-impl<S: Clone, C: Cache + ?Sized, B> tower::Layer<S> for CachingLayer<C, B> {
-    type Service = CachingService<S, C, B>;
+impl<S: Clone, C: Cache + ?Sized> tower::Layer<S> for CachingLayer<C> {
+    type Service = CachingService<S, C>;
 
     fn layer(&self, inner: S) -> Self::Service {
         CachingService {
             inner,
             cache: self.cache.clone(),
-            phantom: PhantomData,
         }
     }
 }
 
-pub struct CachingService<S, C: ?Sized, B> {
+pub struct CachingService<S, C: ?Sized> {
     inner: S,
     cache: Arc<C>,
-    phantom: PhantomData<B>,
 }
 
-impl<S, C, B> CachingService<S, C, B>
+impl<S, C> CachingService<S, C>
 where
-    S: tower::Service<Request<B>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
+    S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
     C: Cache + 'static + ?Sized,
 {
-    async fn on_request(&mut self, request: Request<B>) -> Result<Response<Body>, hyper::Error> {
-        let uri = request.uri();
-        tracing::debug!("Received request for {uri}");
-        let cache_result = self.cache.get(uri).await;
+    async fn on_request(&mut self, request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
+        let UpstreamUriExt(upstream_uri) = request
+            .extensions()
+            .get()
+            .expect("Upstream uri extension is missing");
+
+        tracing::debug!("Received request for {upstream_uri}");
+        let cache_result = self.cache.get(upstream_uri).await;
 
         match cache_result {
             Ok(Some((metadata, body))) => self.on_cache_hit(metadata, body).await,
-            Ok(None) => self.on_cache_miss(request).await,
+            Ok(None) => self.on_cache_miss(upstream_uri.clone(), request).await,
             Err(error) => {
                 tracing::error!(%error, "Failed to read from cache");
                 Ok(Response::builder()
@@ -107,10 +103,13 @@ where
         Ok(body)
     }
 
-    async fn on_cache_miss(&mut self, request: Request<B>) -> Result<Response<Body>, hyper::Error> {
+    async fn on_cache_miss(
+        &mut self,
+        upstream_uri: Uri,
+        request: Request<Body>,
+    ) -> Result<Response<Body>, hyper::Error> {
         tracing::info!("Cache miss");
 
-        let uri = request.uri().clone();
         let response = self.inner.call(request).await?;
 
         if !response.status().is_success() {
@@ -138,7 +137,7 @@ where
 
         tokio::spawn(
             async move {
-                match cache_cloned.set(&uri, receiver, metadata).await {
+                match cache_cloned.set(&upstream_uri, receiver, metadata).await {
                     Ok(()) => tracing::info!("Wrote to cache"),
                     Err(err) => tracing::error!("Failed to write to cache {err:?}"),
                 }
@@ -155,23 +154,21 @@ where
     }
 }
 
-impl<S: Clone, C: ?Sized, B> Clone for CachingService<S, C, B> {
+impl<S: Clone, C: ?Sized> Clone for CachingService<S, C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
             cache: self.cache.clone(),
-            phantom: PhantomData,
         }
     }
 }
 
-impl<S, C, B> tower::Service<Request<B>> for CachingService<S, C, B>
+impl<S, C> tower::Service<Request<Body>> for CachingService<S, C>
 where
-    S: tower::Service<Request<B>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
+    S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
     S: Clone + 'static,
     S::Future: Send,
     C: Cache + Send + Sync + 'static + ?Sized,
-    B: HttpBody + Send + Sync + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -181,7 +178,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, request: Request<B>) -> Self::Future {
+    fn call(&mut self, request: Request<Body>) -> Self::Future {
         let mut c = self.clone();
         async move { c.on_request(request).await }.boxed()
     }

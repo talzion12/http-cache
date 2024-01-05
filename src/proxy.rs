@@ -1,36 +1,33 @@
 use std::task::{Context, Poll};
 
-use hyper::{client::ResponseFuture, Body, Request, Uri};
+use hyper::{client::ResponseFuture, Body, Request};
 
-pub struct ProxyService<C, B> {
-    uri: Uri,
-    client: hyper::Client<C, B>,
+use crate::upstream_uri::layer::UpstreamUriExt;
+
+pub struct ProxyService<C> {
+    client: hyper::Client<C>,
 }
 
-impl<C, B> ProxyService<C, B> {
-    pub fn new(uri: Uri, client: hyper::Client<C, B>) -> Self {
-        Self { uri, client }
+impl<C> ProxyService<C> {
+    pub fn new(client: hyper::Client<C>) -> Self {
+        Self { client }
     }
 }
 
-impl<C, B> Clone for ProxyService<C, B>
+impl<C> Clone for ProxyService<C>
 where
     C: Clone,
 {
     fn clone(&self) -> Self {
         Self {
-            uri: self.uri.clone(),
             client: self.client.clone(),
         }
     }
 }
 
-impl<C, B> tower::Service<Request<B>> for ProxyService<C, B>
+impl<C> tower::Service<Request<Body>> for ProxyService<C>
 where
     C: hyper::client::connect::Connect + Clone + Send + Sync + 'static,
-    B: hyper::body::HttpBody + Send + 'static,
-    B::Data: Send,
-    B::Error: Into<Box<dyn std::error::Error + Send + Sync>>,
 {
     type Response = hyper::Response<Body>;
     type Error = hyper::Error;
@@ -40,10 +37,13 @@ where
         Poll::Ready(Ok(()))
     }
 
-    fn call(&mut self, mut request: Request<B>) -> Self::Future {
-        let mut parts = self.uri.clone().into_parts();
-        parts.path_and_query = request.uri().path_and_query().cloned();
-        *request.uri_mut() = Uri::from_parts(parts).unwrap();
+    fn call(&mut self, mut request: Request<Body>) -> Self::Future {
+        let UpstreamUriExt(upstream_uri) = request
+            .extensions_mut()
+            .remove()
+            .expect("Upstream uri extension is missing");
+
+        *request.uri_mut() = upstream_uri;
 
         tracing::debug!("Proxying request {} {}", request.method(), request.uri());
 

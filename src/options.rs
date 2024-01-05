@@ -7,7 +7,7 @@ use url::Url;
 #[clap(author, version, about, long_about = None)]
 pub struct Options {
     #[clap(long, env = "UPSTREAM_URL")]
-    pub upstream: Uri,
+    pub upstream: Option<Uri>,
 
     #[clap(long, env = "CACHE_URL")]
     pub cache_url: Url,

@@ -33,8 +33,10 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
+{{ if .Values.upstream.url }}
             - name: UPSTREAM_URL
-              value: {{ .Values.upstream.url | required "upstream.url is required" | quote }}
+              value: {{ .Values.upstream.url | quote }}
+{{ end }}
             - name: CACHE_URL
               value: {{ .Values.cache.url | required "cache.url is required" | quote }}
             - name: RUST_LOG
