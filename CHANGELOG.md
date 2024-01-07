@@ -1,8 +1,9 @@
-## [0.4.0](https://github.com/talzion12/http-cache/compare/v0.3.0...v0.4.0) (2024-01-05)
+## [0.4.0](https://github.com/talzion12/http-cache/compare/v0.3.0...v0.4.0) (2024-01-07)
 
 ### Features
 
 - added ability to specify upstream url in the request headers ([6759853](https://github.com/talzion12/http-cache/commit/6759853864a2c22a63de53dd040d95c34765144a))
+- added support for specifying a cache key prefix in the request headers ([18e970c](https://github.com/talzion12/http-cache/commit/18e970c389cb6dcf7366109419a08afe5d292b63))
 
 ### Bug Fixes
 
