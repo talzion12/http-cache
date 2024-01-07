@@ -23,6 +23,9 @@ pub struct Options {
 
     #[clap(long, env = "LOG_FORMAT", default_value = "text")]
     pub log_format: LogFormat,
+
+    #[clap(long, env = "HTTP2_DISABLED")]
+    pub http2_disabled: bool,
 }
 
 #[derive(clap::ValueEnum, Clone, Debug)]

@@ -45,8 +45,28 @@ where
 
         *request.uri_mut() = upstream_uri;
 
-        tracing::debug!("Proxying request {} {}", request.method(), request.uri());
+        tracing::debug!(
+            "Proxying request {} {} {:?}",
+            request.method(),
+            request.uri(),
+            request.headers()
+        );
+
+        for header_key_to_remove in HEADER_KEYS_TO_REMOVE {
+            request.headers_mut().remove(header_key_to_remove);
+        }
 
         self.client.request(request)
     }
 }
+
+// Remove host header and http1 specific headers.
+// https://en.wikipedia.org/wiki/List_of_HTTP_header_fields
+const HEADER_KEYS_TO_REMOVE: [&str; 6] = [
+    "connection",
+    "host",
+    "proxy-connection",
+    "transfer-encoding",
+    "upgrade-insecure-requests",
+    "upgrade",
+];

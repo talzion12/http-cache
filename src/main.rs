@@ -4,7 +4,8 @@ use cache::CachingLayer;
 use clap::Parser;
 use eyre::Context;
 use http::Request;
-use hyper::Body;
+use hyper::{client::HttpConnector, Body, Client};
+use hyper_rustls::HttpsConnector;
 use proxy::ProxyService;
 use tower::{make::Shared, util::option_layer, ServiceBuilder};
 use tracing_error::ErrorLayer;
@@ -44,14 +45,7 @@ async fn main() -> eyre::Result<()> {
         None
     });
 
-    let client = hyper::Client::builder().build(
-        hyper_rustls::HttpsConnectorBuilder::new()
-            .with_native_roots()
-            .https_or_http()
-            .enable_http1()
-            .enable_http2()
-            .build(),
-    );
+    let client = init_client(&options);
     let proxy = ProxyService::new(client);
 
     let service = ServiceBuilder::new()
@@ -94,4 +88,16 @@ fn init_tracing(opts: &Options) {
         .with(ErrorLayer::default())
         .with(EnvFilter::from_default_env())
         .init()
+}
+
+fn init_client(options: &Options) -> Client<HttpsConnector<HttpConnector>> {
+    let connector_builder = hyper_rustls::HttpsConnectorBuilder::new()
+        .with_native_roots()
+        .https_or_http()
+        .enable_http1();
+    if options.http2_disabled {
+        hyper::Client::builder().build(connector_builder.build())
+    } else {
+        hyper::Client::builder().build(connector_builder.enable_http2().build())
+    }
 }
