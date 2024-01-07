@@ -80,6 +80,7 @@
 - **deps:** update rust crate url to 2.4.0 ([#23](https://github.com/talzion12/http-cache/issues/23)) ([dd58e45](https://github.com/talzion12/http-cache/commit/dd58e45814ff535c2900e2af193db28631ba0939))
 - **deps:** update rust crate url to 2.4.1 ([8ef0669](https://github.com/talzion12/http-cache/commit/8ef06692a6765e8f79941e77146c0f2ce59970f0))
 - **deps:** update rust crate url to 2.5.0 ([07a0178](https://github.com/talzion12/http-cache/commit/07a0178320fd5a8e250bf6f97a2a8a633e8b977f))
+- remove http1 headers ([e960a96](https://github.com/talzion12/http-cache/commit/e960a96b4fd5dbf7fe614a951c3a621ab3effe4f))
 
 ## [0.3.0](https://github.com/talzion12/http-cache/compare/v0.2.0...v0.3.0) (2023-04-27)
 
