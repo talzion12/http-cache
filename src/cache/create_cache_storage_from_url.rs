@@ -11,8 +11,9 @@ pub async fn create_cache_storage_from_url(url: &Url) -> color_eyre::Result<Box<
     let result: Box<dyn Cache> = match url.scheme() {
         "file" => {
             let mut builder = Fs::default();
-            builder.root(url.path());
-            tracing::info!("Using filesystem cache at root {}", url.path());
+            let path = url.path();
+            builder.root(path);
+            tracing::info!("Using filesystem cache at root {}", path);
             Box::new(OpendalStorage::new(Operator::new(builder)?.finish()))
         }
         "gs" => {

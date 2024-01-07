@@ -2,7 +2,7 @@ use std::task::{Context, Poll};
 
 use hyper::{client::ResponseFuture, Body, Request};
 
-use crate::upstream_uri::layer::UpstreamUriExt;
+use crate::metadata::layer::UpstreamUriExt;
 
 pub struct ProxyService<C> {
     client: hyper::Client<C>,

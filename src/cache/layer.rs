@@ -10,7 +10,10 @@ use phf::phf_set;
 use tracing::Instrument;
 use url::Url;
 
-use crate::{cache::metadata::CacheMetadata, upstream_uri::layer::UpstreamUriExt};
+use crate::{
+    cache::metadata::CacheMetadata,
+    metadata::layer::{CacheKeyPrefixExt, UpstreamUriExt},
+};
 
 use super::{create_cache_storage_from_url, storage::Cache, GetBody};
 
@@ -60,12 +63,23 @@ where
             .get()
             .expect("Upstream uri extension is missing");
 
+        let cache_key_prefix = request
+            .extensions()
+            .get()
+            .map(|ext: &CacheKeyPrefixExt| &ext.0);
+
         tracing::debug!("Received request for {upstream_uri}");
-        let cache_result = self.cache.get(upstream_uri).await;
+        let cache_result = self
+            .cache
+            .get(upstream_uri, cache_key_prefix.map(AsRef::as_ref))
+            .await;
 
         match cache_result {
             Ok(Some((metadata, body))) => self.on_cache_hit(metadata, body).await,
-            Ok(None) => self.on_cache_miss(upstream_uri.clone(), request).await,
+            Ok(None) => {
+                self.on_cache_miss(upstream_uri.clone(), cache_key_prefix.cloned(), request)
+                    .await
+            }
             Err(error) => {
                 tracing::error!(%error, "Failed to read from cache");
                 Ok(Response::builder()
@@ -106,6 +120,7 @@ where
     async fn on_cache_miss(
         &mut self,
         upstream_uri: Uri,
+        cache_key_prefix: Option<Arc<str>>,
         request: Request<Body>,
     ) -> Result<Response<Body>, hyper::Error> {
         tracing::info!("Cache miss");
@@ -134,10 +149,19 @@ where
 
         let (sender, receiver) = channel::<Bytes>(10);
         let cache_cloned = self.cache.clone();
+        let cache_key_prefix_cloned = cache_key_prefix.clone();
 
         tokio::spawn(
             async move {
-                match cache_cloned.set(&upstream_uri, receiver, metadata).await {
+                match cache_cloned
+                    .set(
+                        &upstream_uri,
+                        receiver,
+                        metadata,
+                        cache_key_prefix_cloned.as_ref().map(AsRef::as_ref),
+                    )
+                    .await
+                {
                     Ok(()) => tracing::info!("Wrote to cache"),
                     Err(err) => tracing::error!("Failed to write to cache {err:?}"),
                 }

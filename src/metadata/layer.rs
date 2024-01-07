@@ -1,37 +1,43 @@
-use std::task::{Context, Poll};
+use std::{
+    sync::Arc,
+    task::{Context, Poll},
+};
 
 use http::{header, Request, Response, StatusCode, Uri};
 use hyper::Body;
 
-use super::get_upstream_url::{get_upstream_uri, UPSTREAM_URL_HEADER_KEY};
+use super::{
+    get_cache_key_prefix::{get_cache_key_prefix, CACHE_KEY_PREFIX_HEADER_KEY},
+    get_upstream_url::{get_upstream_uri, UPSTREAM_URL_HEADER_KEY},
+};
 
-pub struct ExtractUpstreamUriLayer {
+pub struct ExtractMetadataLayer {
     base_uri: Option<Uri>,
 }
 
-impl ExtractUpstreamUriLayer {
+impl ExtractMetadataLayer {
     pub fn new(base_uri: Option<Uri>) -> Self {
         Self { base_uri }
     }
 }
 
-impl<S: Clone> tower::Layer<S> for ExtractUpstreamUriLayer {
-    type Service = ExtractUpstreamUriService<S>;
+impl<S: Clone> tower::Layer<S> for ExtractMetadataLayer {
+    type Service = ExtractMetadataLayerService<S>;
 
     fn layer(&self, inner: S) -> Self::Service {
-        ExtractUpstreamUriService {
+        ExtractMetadataLayerService {
             inner,
             base_uri: self.base_uri.clone(),
         }
     }
 }
 
-pub struct ExtractUpstreamUriService<S> {
+pub struct ExtractMetadataLayerService<S> {
     inner: S,
     base_uri: Option<Uri>,
 }
 
-impl<S> Clone for ExtractUpstreamUriService<S>
+impl<S> Clone for ExtractMetadataLayerService<S>
 where
     S: Clone,
 {
@@ -43,7 +49,7 @@ where
     }
 }
 
-impl<S> tower::Service<Request<Body>> for ExtractUpstreamUriService<S>
+impl<S> tower::Service<Request<Body>> for ExtractMetadataLayerService<S>
 where
     S: tower::Service<Request<Body>, Response = Response<Body>>,
 {
@@ -60,6 +66,7 @@ where
 
     fn call(&mut self, mut request: Request<Body>) -> Self::Future {
         let upstream_header_value = request.headers_mut().remove(UPSTREAM_URL_HEADER_KEY);
+        let cache_key_header_value = request.headers_mut().remove(CACHE_KEY_PREFIX_HEADER_KEY);
 
         let upstream_uri =
             match get_upstream_uri(request.uri(), upstream_header_value, self.base_uri.as_ref()) {
@@ -85,8 +92,15 @@ where
             .extensions_mut()
             .insert(UpstreamUriExt(upstream_uri));
 
+        if let Some(cache_key_prefix) = get_cache_key_prefix(cache_key_header_value) {
+            request
+                .extensions_mut()
+                .insert(CacheKeyPrefixExt(cache_key_prefix));
+        }
+
         futures::future::Either::Left(self.inner.call(request))
     }
 }
 
 pub struct UpstreamUriExt(pub Uri);
+pub struct CacheKeyPrefixExt(pub Arc<str>);

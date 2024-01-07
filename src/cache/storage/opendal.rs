@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use futures::{io::BufReader, StreamExt};
 use http::Uri;
 use opendal::{ErrorKind, Operator};
@@ -22,10 +21,10 @@ impl OpendalStorage {
     }
 }
 
-#[async_trait]
+#[async_trait::async_trait]
 impl Cache for OpendalStorage {
-    async fn get(&self, key: &Uri) -> eyre::Result<GetReturn> {
-        let reader = match self.operator.reader(&hash_uri(key)).await {
+    async fn get(&self, uri: &Uri, prefix: Option<&str>) -> eyre::Result<GetReturn> {
+        let reader = match self.operator.reader(&get_cache_key(uri, prefix)).await {
             Ok(file) => file,
             Err(error) => {
                 if error.kind() == ErrorKind::NotFound {
@@ -47,11 +46,12 @@ impl Cache for OpendalStorage {
     }
     async fn set(
         &self,
-        key: &Uri,
+        uri: &Uri,
         mut value: SetBody,
         metadata: CacheMetadata,
+        prefix: Option<&str>,
     ) -> eyre::Result<()> {
-        let mut writer = self.operator.writer(&hash_uri(key)).await?;
+        let mut writer = self.operator.writer(&get_cache_key(uri, prefix)).await?;
 
         write_metadata_prefix(&mut writer, &metadata).await?;
 
@@ -62,5 +62,14 @@ impl Cache for OpendalStorage {
         writer.close().await?;
 
         Ok(())
+    }
+}
+
+fn get_cache_key(uri: &Uri, prefix: Option<&str>) -> String {
+    let hash = hash_uri(uri);
+    if let Some(prefix) = prefix {
+        format!("{prefix}{hash}")
+    } else {
+        hash
     }
 }

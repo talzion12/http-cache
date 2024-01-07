@@ -11,12 +11,12 @@ use tracing_error::ErrorLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, Layer};
 
 mod cache;
+mod metadata;
 mod options;
 mod proxy;
-mod upstream_uri;
 
+use metadata::layer::ExtractMetadataLayer;
 use options::{LogFormat, Options};
-use upstream_uri::layer::ExtractUpstreamUriLayer;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
@@ -67,7 +67,7 @@ async fn main() -> eyre::Result<()> {
                 },
             ),
         )
-        .layer(ExtractUpstreamUriLayer::new(options.upstream))
+        .layer(ExtractMetadataLayer::new(options.upstream))
         .layer(cache_layer_2)
         .layer(cache_layer)
         .service(proxy);
