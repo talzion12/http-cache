@@ -1,3 +1,13 @@
+## [0.4.1](https://github.com/talzion12/http-cache/compare/v0.4.0...v0.4.1) (2024-01-12)
+
+
+### Bug Fixes
+
+* **deps:** update rust crate clap to 4.4.14 ([6d9c8e9](https://github.com/talzion12/http-cache/commit/6d9c8e92a594e606ac1fd5557e3b3142fd0b5c67))
+* **deps:** update rust crate clap to 4.4.15 ([b33dcb9](https://github.com/talzion12/http-cache/commit/b33dcb95410b09a27372d1ff9fefced61335e3d8))
+* **deps:** update rust crate clap to 4.4.16 ([d427c10](https://github.com/talzion12/http-cache/commit/d427c1083e4847700ab253437942642b20503dc0))
+* unable to upload data to Google Cloud Storage ([00b1f99](https://github.com/talzion12/http-cache/commit/00b1f99984fc5fd5c20727ae8ecad540f142d2c8))
+
 ## [0.4.0](https://github.com/talzion12/http-cache/compare/v0.3.0...v0.4.0) (2024-01-07)
 
 ### Features
