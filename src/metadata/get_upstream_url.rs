@@ -50,3 +50,48 @@ pub enum GetBaseUrlFromHeadersError {
     #[error("Header value is not a valid uri")]
     HeaderNotUri(#[source] InvalidUri),
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    fn get_upstream_uri(
+        request_uri: &str,
+        upstream_header: Option<&str>,
+        base_url: Option<&str>,
+    ) -> eyre::Result<Uri> {
+        let uri = Uri::from_str(request_uri)?;
+        let upstream_header_value = upstream_header.map(HeaderValue::from_str).transpose()?;
+        let base_url = base_url.map(Uri::from_str).transpose()?;
+
+        Ok(super::get_upstream_uri(
+            &uri,
+            upstream_header_value,
+            base_url.as_ref(),
+        )?)
+    }
+
+    #[test]
+    fn get_upstream_uri_from_headers() -> eyre::Result<()> {
+        let result = get_upstream_uri(
+            "https://www.google.com/path/wow",
+            Some("https://www.facebok.com"),
+            Some("https://www.amazon.com"),
+        )?;
+        assert_eq!(result, Uri::from_static("https://www.facebok.com"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn get_upstream_uri_from_base_url() -> eyre::Result<()> {
+        let result = get_upstream_uri(
+            "https://www.google.com/path/wow",
+            None,
+            Some("https://www.amazon.com"),
+        )?;
+        assert_eq!(result, Uri::from_static("https://www.amazon.com/path/wow"));
+
+        Ok(())
+    }
+}

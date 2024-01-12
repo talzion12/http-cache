@@ -7,13 +7,13 @@ pub type GetReturn = Option<(CacheMetadata, GetBody)>;
 pub type SetBody = futures::channel::mpsc::Receiver<Bytes>;
 
 #[async_trait::async_trait]
-pub trait Cache: Send + Sync + 'static {
+pub trait CacheStorage: Send + Sync + 'static {
     async fn get(&self, key: &Uri, prefix: Option<&str>) -> eyre::Result<GetReturn>;
     async fn set(
         &self,
         key: &Uri,
         value: SetBody,
-        metadata: CacheMetadata,
+        metadata: &CacheMetadata,
         prefix: Option<&str>,
     ) -> eyre::Result<()>;
 }

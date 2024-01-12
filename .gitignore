@@ -2,3 +2,5 @@
 .direnv
 /fs-cache
 /node_modules
+/service-account.json
+/.env

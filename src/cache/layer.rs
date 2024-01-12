@@ -15,7 +15,7 @@ use crate::{
     metadata::layer::{CacheKeyPrefixExt, UpstreamUriExt},
 };
 
-use super::{create_cache_storage_from_url, storage::Cache, GetBody};
+use super::{create_cache_storage_from_url, storage::CacheStorage, GetBody};
 
 pub struct CachingLayer<C: ?Sized> {
     cache: Arc<C>,
@@ -29,14 +29,14 @@ impl<C: ?Sized> CachingLayer<C> {
     }
 }
 
-impl CachingLayer<dyn Cache> {
-    pub async fn from_url(url: &Url) -> color_eyre::Result<Self> {
-        let storage = create_cache_storage_from_url(url).await?;
+impl CachingLayer<dyn CacheStorage> {
+    pub fn from_url(url: &Url) -> color_eyre::Result<Self> {
+        let storage = create_cache_storage_from_url(url)?;
         Ok(Self::new(storage))
     }
 }
 
-impl<S: Clone, C: Cache + ?Sized> tower::Layer<S> for CachingLayer<C> {
+impl<S: Clone, C: CacheStorage + ?Sized> tower::Layer<S> for CachingLayer<C> {
     type Service = CachingService<S, C>;
 
     fn layer(&self, inner: S) -> Self::Service {
@@ -55,7 +55,7 @@ pub struct CachingService<S, C: ?Sized> {
 impl<S, C> CachingService<S, C>
 where
     S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
-    C: Cache + 'static + ?Sized,
+    C: CacheStorage + 'static + ?Sized,
 {
     async fn on_request(&mut self, request: Request<Body>) -> Result<Response<Body>, hyper::Error> {
         let UpstreamUriExt(upstream_uri) = request
@@ -157,7 +157,7 @@ where
                     .set(
                         &upstream_uri,
                         receiver,
-                        metadata,
+                        &metadata,
                         cache_key_prefix_cloned.as_ref().map(AsRef::as_ref),
                     )
                     .await
@@ -192,7 +192,7 @@ where
     S: tower::Service<Request<Body>, Response = Response<Body>, Error = hyper::Error> + Send + Sync,
     S: Clone + 'static,
     S::Future: Send,
-    C: Cache + Send + Sync + 'static + ?Sized,
+    C: CacheStorage + Send + Sync + 'static + ?Sized,
 {
     type Response = S::Response;
     type Error = S::Error;

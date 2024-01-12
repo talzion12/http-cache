@@ -15,6 +15,8 @@ mod cache;
 mod metadata;
 mod options;
 mod proxy;
+#[cfg(test)]
+mod test;
 
 use metadata::layer::ExtractMetadataLayer;
 use options::{LogFormat, Options};
@@ -37,10 +39,10 @@ async fn main() -> eyre::Result<()> {
 
     color_eyre::install()?;
 
-    let cache_layer = CachingLayer::from_url(&options.cache_url).await?;
+    let cache_layer = CachingLayer::from_url(&options.cache_url)?;
 
     let cache_layer_2 = option_layer(if let Some(cache_url_2) = &options.cache_url_2 {
-        Some(CachingLayer::from_url(cache_url_2).await?)
+        Some(CachingLayer::from_url(cache_url_2)?)
     } else {
         None
     });
