@@ -30,7 +30,7 @@ hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 phf = { version = "0.11", features = ["macros"] }
-opendal = { version = "0.44.1", features = [
+opendal = { version = "0.44.2", features = [
     "services-gcs",
     "services-fs",
     "rustls",
