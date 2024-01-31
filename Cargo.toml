@@ -12,7 +12,7 @@ color-eyre = "0.6"
 thiserror = "1.0.56"
 serde-error = "0.1.2"
 dotenv = "0.15.0"
-eyre = "0.6.11"
+eyre = "0.6.12"
 url = "2.5.0"
 futures = "0.3.30"
 http = { version = "0.2.11" }
