@@ -37,5 +37,5 @@ opendal = { version = "0.45.0", features = [
 ], default-features = false }
 
 [dev-dependencies]
-tempfile = "3.9.0"
+tempfile = "3.10.0"
 time = "0.3.34"
