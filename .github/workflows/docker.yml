@@ -61,7 +61,7 @@ jobs:
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
-        uses: docker/login-action@3d58c274f17dffee475a5520cbe67f0a882c4dbb
+        uses: docker/login-action@83a00bc1ab5ded6580f31df1c49e6aaa932d840d
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
