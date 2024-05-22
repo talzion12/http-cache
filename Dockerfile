@@ -14,7 +14,7 @@ RUN cargo chef cook --release --recipe-path recipe.json
 COPY . .
 RUN cargo build --release --bin http-cache
 
-FROM docker.io/library/alpine:3.19 AS runtime
+FROM docker.io/library/alpine:3.20 AS runtime
 WORKDIR app
 COPY --from=builder /app/target/release/http-cache /usr/local/bin/http-cache
 ENTRYPOINT ["http-cache"]
