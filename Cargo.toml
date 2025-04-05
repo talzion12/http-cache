@@ -21,7 +21,7 @@ hyper-rustls = { version = "0.24.2", features = ["http2"] }
 tokio-util = { version = "0.7.11", features = ["compat"] }
 tokio = { version = "1.37", features = ["rt-multi-thread", "macros"] }
 tower = { version = "0.5.0", features = ["make", "util"] }
-tower-http = { version = "0.4.4", features = ["trace"] }
+tower-http = { version = "0.6.0", features = ["trace"] }
 tracing = "0.1.40"
 tracing-error = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["json", "env-filter"] }
