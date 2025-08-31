@@ -10,8 +10,8 @@
     "version:recommended-bump": "conventional-recommended-bump -p conventionalcommits"
   },
   "devDependencies": {
-    "@commitlint/cli": "^17.4.2",
-    "@commitlint/config-conventional": "^17.4.2",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
     "conventional-changelog-cli": "^4.0.0",
     "conventional-recommended-bump": "^9.0.0"
   }
