@@ -1,4 +1,4 @@
-FROM docker.io/library/rust:1.96-alpine AS chef
+FROM docker.io/library/rust:1.97-alpine AS chef
 RUN apk add --no-cache musl-dev
 RUN cargo install cargo-chef
 WORKDIR app
