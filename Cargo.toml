@@ -9,7 +9,7 @@ edition = "2021"
 async-trait = "0.1.80"
 clap = { version = "4.5.4", features = ["derive", "env"] }
 color-eyre = "0.6.3"
-thiserror = "1.0.59"
+thiserror = "2.0.0"
 serde-error = "0.1.2"
 dotenv = "0.15.0"
 eyre = "0.6.12"
